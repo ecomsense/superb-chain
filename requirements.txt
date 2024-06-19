@@ -11,3 +11,5 @@ websocket_client
 pandas
 pendulum
 pyotp
+gspread
+oauth2client
