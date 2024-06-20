@@ -55,10 +55,10 @@ class Symbols:
             ].str.extract(r"([A-Z]+)(\d+[A-Z]+\d+)([CP])(\d+)")
             df.to_csv(self.csvfile, index=False)
 
-    def find_symbol_token(self):
+    def find_token_from_symbol(self, symbol):
         df = pd.read_csv(self.csvfile)
         dct = dict(zip(df["TradingSymbol"], df["Token"]))
-        return dct
+        return dct[symbol]
 
     def calc_atm_from_ltp(self, ltp) -> int:
         current_strike = ltp - (ltp % dct_sym[self.symbol]["diff"])
@@ -114,20 +114,3 @@ class Symbols:
         if c_or_p == "P":
             away = -1 * away
         return f"{self.symbol}{self.expiry}{c_or_p}{atm + away}"
-
-
-if __name__ == "__main__":
-    from constants import logging, O_SETG
-
-    SYMBOL = "BANKNIFTY"
-    try:
-        symbols = Symbols("NFO", SYMBOL, O_SETG[SYMBOL]["expiry"])
-        symbols.get_exchange_token_map_finvasia()
-        dct = symbols.get_all_tokens_from_csv()
-        print(dct["BANKNIFTY08MAY24C48000"])
-
-        atm = symbols.get_atm(48000.50)
-        resp = symbols.find_option(atm, "P", -2)
-        print(f"{resp=}")
-    except Exception as e:
-        logging.debug(f"{e} while getting symbols")
