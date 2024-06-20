@@ -64,19 +64,7 @@ if __name__ == "__main__":
     import time
     import pandas as pd
 
-    stock_details_df = pd.read_csv("../../data/stocks_with_pivots_2024_01_03.csv")
-    pd_tokens = pd.read_csv("../../data/symbol_token_mapping.csv")
-    dct = (
-        pd.merge(stock_details_df["symbol"], pd_tokens, how="left", on="symbol")
-        .set_index("symbol")
-        .to_dict()
-    )
-    dct = {"NSE|" + str(v): k for k, v in dct["token"].items()}
-    lst = list(dct.keys())
     """
-    controller = Controller()
-    controller.generate_login_object()
-    broker = controller.brokerLogin
     wserver = Wserver(
         broker,
         lst,
@@ -111,51 +99,3 @@ if __name__ == "__main__":
     dct_quotes = {k: [float(x) for x in v] for k, v in dct_quotes.items()}
     print(dct_quotes)
     lst = list(dct_quotes.keys())
-    stock_details_df = stock_details_df[stock_details_df["symbol"].isin(lst)]
-
-    lst_signals = []
-    data = {}
-    for k, v in dct_quotes.items():
-        dir_result = {}
-        prev_day_details = stock_details_df[stock_details_df["symbol"] == k].iloc[-1]
-        open_price, high, low, ltp = map(float, v)
-        if (
-            open_price == low
-            and ltp > prev_day_details["prev_high"]
-            and ltp >= prev_day_details["RES1"]
-            and ltp < prev_day_details["RES3"]
-            and (
-                (high - prev_day_details["prev_close"])
-                / prev_day_details["prev_close"]
-                * 100
-            )
-            <= 3
-            and high < (prev_day_details["RES3"] - (prev_day_details["RES3"] * 0.006))
-        ):
-            dir_result["Stock"] = k
-            dir_result["Signal"] = "B"
-            dir_result["High"] = high
-            dir_result["Low"] = low
-            dir_result["Close"] = ltp
-            lst_signals.append(dir_result)
-        elif (
-            open_price == high
-            and ltp < prev_day_details["prev_low"].astype(float)
-            and ltp < prev_day_details["SUP1"]
-            and ltp > prev_day_details["SUP3"]
-            and (
-                (low - prev_day_details["prev_close"])
-                / prev_day_details["prev_close"]
-                * 100
-            )
-            >= -3
-            and low > (prev_day_details["SUP3"] + (prev_day_details["SUP3"] * 0.006))
-        ):
-            dir_result["Stock"] = k
-            dir_result["Signal"] = "S"
-            dir_result["High"] = high
-            dir_result["Low"] = low
-            dir_result["Close"] = ltp
-            lst_signals.append(dir_result)
-        data[k] = [open_price, high, low, ltp]
-    print(lst_signals)
