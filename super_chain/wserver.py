@@ -57,12 +57,26 @@ class Wserver:
             key = message["e"] + "|" + message["tk"]
             tradingsymbol = self.dct_tokens[key]
             exch_sym = message["e"] + ":" + tradingsymbol
+
             # Initialize the list if it doesn't exist
             if exch_sym not in self.ltp:
-                self.ltp[exch_sym] = [None, None, None, None]
+                self.ltp[exch_sym] = [None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None]
+
 
             # Update the list only if the corresponding keys exist in the message
-            self.ltp[exch_sym][0] = float(message.get("o", self.ltp[exch_sym][0]))
-            self.ltp[exch_sym][1] = float(message.get("h", self.ltp[exch_sym][1]))
-            self.ltp[exch_sym][2] = float(message.get("l", self.ltp[exch_sym][2]))
-            self.ltp[exch_sym][3] = float(message.get("lp", self.ltp[exch_sym][3]))
+            self.ltp[exch_sym][0] = float(message.get("lp", self.ltp[exch_sym][0]))
+            self.ltp[exch_sym][1] = float(message.get("bq1", self.ltp[exch_sym][1]))    #buy quantity
+            self.ltp[exch_sym][2] = float(message.get("bp1", self.ltp[exch_sym][2]))    #buy price
+            self.ltp[exch_sym][3] = float(message.get("sp1", self.ltp[exch_sym][3]))      #sell price
+            self.ltp[exch_sym][4] = float(message.get("sq1", self.ltp[exch_sym][4]))     #sell quantity
+            self.ltp[exch_sym][5] = float(message.get("o", self.ltp[exch_sym][5]))
+            self.ltp[exch_sym][6] = float(message.get("h", self.ltp[exch_sym][6]))
+            self.ltp[exch_sym][7] = float(message.get("l", self.ltp[exch_sym][7]))
+            self.ltp[exch_sym][8] = float(message.get("c", self.ltp[exch_sym][8]))
+            self.ltp[exch_sym][9] = float(message.get("tbq", self.ltp[exch_sym][9]))      #total buy quantity
+            self.ltp[exch_sym][10] = float(message.get("tsq", self.ltp[exch_sym][10]))    #total sell quantity
+            self.ltp[exch_sym][11] = float(message.get("ap", self.ltp[exch_sym][11]))    #avg price
+            self.ltp[exch_sym][12] = float(message.get("pc", self.ltp[exch_sym][12]))    #percent change
+            self.ltp[exch_sym][13] = float(message.get("v", self.ltp[exch_sym][13]))    #volume
+            self.ltp[exch_sym][14] = float(message.get("poi", self.ltp[exch_sym][14]))    #prev oi
+            self.ltp[exch_sym][15] = float(message.get("oi", self.ltp[exch_sym][15]))    #oi
