@@ -7,28 +7,36 @@ from gsheet_helper import authenticate_gsheet, update_gsheet
 import pandas as pd
 from collections import defaultdict
 import re
+from datetime import datetime
 
 # these will come from settings later
-sheet_name = "Test gSheet"
-lst = ["BANKNIFTY", "NIFTY"]
-dct = {"BANKNIFTY": {"expiry": "26JUN24"}, "NIFTY": {"expiry": "27JUN24"}}
-
+sheet_name = 'Test gSheet'
+lst = ["BANKNIFTY", "NIFTY", "MIDCPNIFTY"]
+dct = {"BANKNIFTY": {"expiry": "03JUL24", "futExpiry":"31JUL24"},
+       "NIFTY": {"expiry": "04JUL24","futExpiry":"25JUL24"},
+       "MIDCPNIFTY": {"expiry": "01JUL24","futExpiry":"29JUL24"}
+     }
 
 def get_token_map():
     dct_map = {}
     for sym in lst:
-        o_sym = Symbols("NFO", sym, dct[sym]["expiry"])
+        o_sym = Symbols("NFO", sym, dct[sym]["expiry"], dct[sym]["futExpiry"])
         # dump and save to file
         o_sym.dump()
 
         # for index tokens are in a dict from symbols
         resp = Helper.api.scriptinfo("NSE", dct_sym[sym]["token"])
-
-        # print (resp)
         atm = o_sym.calc_atm_from_ltp(float(resp["lp"]))
 
         # key is finvasia wserver subscription format
         dct_map.update(o_sym.build_chain(atm))
+
+        #Update index in token list
+        dct_map.update(o_sym.updateIndex(sym, dct_sym[sym]["token"]))
+
+        #Update index Fut in token list
+        dct_map.update(o_sym.updateFut())
+        
     return dct_map
 
 
@@ -40,13 +48,14 @@ def run(Ws):
     while True:
         logging.info("socket data")
         logging.info(Ws.ltp)
-        updateDF(Ws.ltp)
-        timer(1)
-
+        updateDF (Ws.ltp)
+        timer(10)
 
 def updateDF(data):
+    
     # To hold grouped data by instrument and expiry
     grouped_data = defaultdict(lambda: defaultdict(dict))
+    grouped_indexdata = defaultdict(lambda: defaultdict(dict))
 
     # Regex to extract expiry date
     expiry_pattern = re.compile(r"(\d{2}[A-Z]{3}\d{2})")
@@ -58,7 +67,10 @@ def updateDF(data):
             expiry = match.group(1)
             instrument, rest = key.split(f"{expiry}")
             strike = rest[1:]
-            grouped_data[instrument][expiry][int(strike)] = values
+            if (strike):
+                grouped_data[instrument][expiry][int(strike)] = values
+            else:
+                grouped_indexdata[instrument][expiry] = values
 
     # Process each instrument and expiry separately
     for instrument, expiries in grouped_data.items():
@@ -75,7 +87,7 @@ def updateDF(data):
                 combined_values = left_values[:16] + [strike] + right_values[:16]
                 combined_rows.append(combined_values)
 
-        # Create DataFrame columns
+        # Create DataFrame columns 
         columns = [
             "CE LTP",
             "CE_BIDQTY",
@@ -166,12 +178,41 @@ def updateDF(data):
             sheet_index = 0
         elif indexSym == "BANKNIFTY":
             sheet_index = 1
-        print(indexSym)
+        elif (indexSym == 'MIDCPNIFTY'):
+            sheet_index = 2
         update_gsheet(client, sheet_name, sheet_index, final_df, start_cell1)
-        print("updated gsheet")
+        print ('updated option chain in gsheet for ' + str(indexSym))
+    
+    for instrument,expiries in grouped_indexdata.items():
+        now = datetime.now()
+        curr_timestamp = now.strftime('%d-%m-%Y %H:%M:%S')
 
+        for expiry, values in expiries.items():
+            indexInstrument = f'{instrument}{expiry}F'
+            indexValues = data.get(indexInstrument, [None] * 17)
+            indexSym = instrument.replace('NFO:','')
+            date_obj = datetime.strptime(dct[indexSym]["expiry"], '%d%b%y')
+            exp_date = date_obj.strftime('%Y-%m-%d')
+            spotValues = data.get('NSE:'+str(indexSym), [None] * 17)
+            indexData_df = {
+                "Additional Details": ["Symbol", "Expiry", "Updated at", "LTP (spot, future)", "Open (spot, future)", "High (spot, future)", "Low (spot, future)", "Close (spot, future)", "Future OI"],
+                "CE": [indexSym, exp_date, curr_timestamp, spotValues[0], spotValues[5], spotValues[6], spotValues[7], spotValues[8], int(indexValues[15])],
+                "PE": ["", "", "", indexValues[0], indexValues[5], indexValues[6], indexValues[7], indexValues[8], ""]
+            }
+            
+            indexDf = pd.DataFrame(indexData_df)            
+            start_cell1 = 'A1'
+            if (indexSym == 'NIFTY'):
+                sheet_index = 0
+            elif (indexSym == 'BANKNIFTY'):
+                sheet_index = 1
+            elif (indexSym == 'MIDCPNIFTY'):
+                sheet_index = 2
+            update_gsheet(client, sheet_name, sheet_index, indexDf, start_cell1)
+            print ('updated Additional values in gsheet for '+str(indexSym))
 
 def main():
+
     ## gsheet authenticate
     global client
     scope = [
@@ -186,7 +227,7 @@ def main():
     Helper.login()
     # get key values for subscription
     dct_map = get_token_map()
-    logging.info("dct map is " + str(dct_map))
+    logging.info("dct map is "+ str(dct_map))
     # init wsocket
     Ws = Wserver(Helper.api._broker, dct_map)
     run(Ws)
