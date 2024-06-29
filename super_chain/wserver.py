@@ -65,6 +65,7 @@ class Wserver:
 
             # Update the list only if the corresponding keys exist in the message
             self.ltp[exch_sym][0] = float(message.get("lp", self.ltp[exch_sym][0]))
+            self.ltp[exch_sym][15] = float(message.get("oi", self.ltp[exch_sym][15]))    #oi
             self.ltp[exch_sym][1] = float(message.get("bq1", self.ltp[exch_sym][1]))    #buy quantity
             self.ltp[exch_sym][2] = float(message.get("bp1", self.ltp[exch_sym][2]))    #buy price
             self.ltp[exch_sym][3] = float(message.get("sp1", self.ltp[exch_sym][3]))      #sell price
@@ -79,4 +80,3 @@ class Wserver:
             self.ltp[exch_sym][12] = float(message.get("pc", self.ltp[exch_sym][12]))    #percent change
             self.ltp[exch_sym][13] = float(message.get("v", self.ltp[exch_sym][13]))    #volume
             self.ltp[exch_sym][14] = float(message.get("poi", self.ltp[exch_sym][14]))    #prev oi
-            self.ltp[exch_sym][15] = float(message.get("oi", self.ltp[exch_sym][15]))    #oi
