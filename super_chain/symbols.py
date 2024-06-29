@@ -7,7 +7,7 @@ dct_sym = {
         "index": "Nifty 50",
         "exch": "NSE",
         "token": "26000",
-        "depth": 16,
+        "depth": 25,
     },
     "BANKNIFTY": {
         "diff": 100,
@@ -21,23 +21,38 @@ dct_sym = {
         "index": "NIFTY MID SELECT",
         "exch": "NSE",
         "token": "26074",
-        "depth": 21,
+        "depth": 25,
     },
     "FINNIFTY": {
         "diff": 50,
         "index": "Nifty Fin Services",
         "exch": "NSE",
         "token": "26037",
-        "depth": 16,
+        "depth": 25,
     },
+    # "BANKEX": {
+    #     "diff": 50,
+    #     "index": "Nifty Fin Services",
+    #     "exch": "NSE",
+    #     "token": "26037",
+    #     "depth": 25,
+    # },
+    # "SENSEX": {
+    #     "diff": 50,
+    #     "index": "Nifty Fin Services",
+    #     "exch": "NSE",
+    #     "token": "26037",
+    #     "depth": 25,
+    # }
 }
 
 
 class Symbols:
-    def __init__(self, exch: str, symbol: str, expiry: str):
+    def __init__(self, exch: str, symbol: str, expiry: str, futExpiry: str):
         self.exch = exch
         self.symbol = symbol
         self.expiry = expiry
+        self.futExpiry = futExpiry
         self.csvfile = f"{S_DATA}/{symbol}/map_{symbol.lower()}.csv"
 
     def dump(self):
@@ -52,7 +67,7 @@ class Symbols:
             # split columns with necessary values
             df[["Symbol", "Expiry", "OptionType", "StrikePrice"]] = df[
                 "TradingSymbol"
-            ].str.extract(r"([A-Z]+)(\d+[A-Z]+\d+)([CP])(\d+)")
+            ].str.extract(r"([A-Z]+)(\d+[A-Z]+\d+)([CPF])(\d+)?")
             df.to_csv(self.csvfile, index=False)
 
     def find_token_from_symbol(self, symbol):
@@ -114,3 +129,25 @@ class Symbols:
         if c_or_p == "P":
             away = -1 * away
         return f"{self.symbol}{self.expiry}{c_or_p}{atm + away}"
+
+    def updateIndex(self, symbol, token):
+
+        tokens = "NSE|"+str(token)
+        val = { tokens: symbol }
+        return val
+
+    def updateFut(self):
+        df = pd.read_csv(self.csvfile)
+        lst = []
+        lst.append(self.symbol + self.futExpiry + "F")
+        df["Exchange"] = self.exch
+        tokens_found = (
+            df[df["TradingSymbol"].isin(lst)]
+            .assign(tknexc=df["Exchange"] + "|" + df["Token"].astype(str))[
+                ["tknexc", "TradingSymbol"]
+            ]
+            .set_index("tknexc")
+        )
+        dct = tokens_found.to_dict()
+        return dct["TradingSymbol"]
+
