@@ -2,33 +2,40 @@ import pandas as pd
 from constants import S_DATA, O_FUTL
 
 dct_sym = {
-    "NIFTY": {
+     "NIFTY": {
         "diff": 50,
         "index": "Nifty 50",
         "exch": "NSE",
         "token": "26000",
-        "depth": 25,
+        "depth": 25
     },
     "BANKNIFTY": {
         "diff": 100,
         "index": "Nifty Bank",
         "exch": "NSE",
         "token": "26009",
-        "depth": 25,
+        "depth": 25
     },
     "MIDCPNIFTY": {
-        "diff": 100,
+        "diff": 25,
         "index": "NIFTY MID SELECT",
         "exch": "NSE",
         "token": "26074",
-        "depth": 25,
+        "depth": 25
     },
     "FINNIFTY": {
         "diff": 50,
         "index": "Nifty Fin Services",
         "exch": "NSE",
         "token": "26037",
-        "depth": 25,
+        "depth": 25
+    },
+    "NIFTYNXT50":{
+        "diff": 100,
+        "index": "Nifty Next 50",
+        "exch": "NSE",
+        "token": "26013",
+        "depth": 25
     },
     # "BANKEX": {
     #     "diff": 50,
@@ -65,9 +72,15 @@ class Symbols:
                 # & (df["TradingSymbol"].str.contains(self.symbol + self.expiry))
             ][["Token", "TradingSymbol"]]
             # split columns with necessary values
+            # df[["Symbol", "Expiry", "OptionType", "StrikePrice"]] = df[
+            #     "TradingSymbol"
+            # ].str.extract(r"([A-Z]+)(\d+[A-Z]+\d+)([CPF])(\d+)?")
+
+            ## to support nifty next 50 
             df[["Symbol", "Expiry", "OptionType", "StrikePrice"]] = df[
                 "TradingSymbol"
-            ].str.extract(r"([A-Z]+)(\d+[A-Z]+\d+)([CPF])(\d+)?")
+            ].str.extract(r"([A-Z]+[A-Z0-9]*)(\d{2}[A-Z]{3}\d{2})([CP])(\d+)")
+            
             df.to_csv(self.csvfile, index=False)
 
     def find_token_from_symbol(self, symbol):
