@@ -11,11 +11,13 @@ from datetime import datetime
 
 # these will come from settings later
 sheet_name = 'Test gSheet'
-lst = ["BANKNIFTY", "NIFTY", "MIDCPNIFTY"]
-dct = {"BANKNIFTY": {"expiry": "03JUL24", "futExpiry":"31JUL24"},
-       "NIFTY": {"expiry": "04JUL24","futExpiry":"25JUL24"},
-       "MIDCPNIFTY": {"expiry": "01JUL24","futExpiry":"29JUL24"}
-     }
+lst = ["BANKNIFTY", "NIFTY", "MIDCPNIFTY","FINNIFTY","NIFTYNXT50"]
+dct = {"BANKNIFTY": {"expiry": "10JUL24", "futExpiry":"31JUL24"},
+       "NIFTY": {"expiry": "11JUL24","futExpiry":"25JUL24"},
+       "MIDCPNIFTY": {"expiry": "08JUL24","futExpiry":"29JUL24"},
+       "FINNIFTY": {"expiry": "09JUL24","futExpiry":"30JUL24"},
+       "NIFTYNXT50": {"expiry": "26JUL24","futExpiry":"26JUL24"}
+      }
 
 def get_token_map():
     dct_map = {}
@@ -180,6 +182,10 @@ def updateDF(data):
             sheet_index = 1
         elif (indexSym == 'MIDCPNIFTY'):
             sheet_index = 2
+        elif (indexSym == 'FINNIFTY'):
+            sheet_index = 3
+        elif (indexSym == 'NIFTYNXT50'):
+            sheet_index = 4
         update_gsheet(client, sheet_name, sheet_index, final_df, start_cell1)
         print ('updated option chain in gsheet for ' + str(indexSym))
     
@@ -208,6 +214,10 @@ def updateDF(data):
                 sheet_index = 1
             elif (indexSym == 'MIDCPNIFTY'):
                 sheet_index = 2
+            elif (indexSym == 'FINNIFTY'):
+                sheet_index = 3
+            elif (indexSym == 'NIFTYNXT50'):
+                sheet_index = 4
             update_gsheet(client, sheet_name, sheet_index, indexDf, start_cell1)
             print ('updated Additional values in gsheet for '+str(indexSym))
 
