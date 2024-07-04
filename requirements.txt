@@ -13,3 +13,4 @@ pendulum
 pyotp
 gspread
 oauth2client
+scipy
