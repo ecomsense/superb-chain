@@ -82,8 +82,8 @@ print(O_CNFG, O_SETG)
 
 def set_logger():
     level = O_SETG.get("log_level", 10)
-    if O_SETG.get("show_log", False):
-        return Logger(level)
+    #if O_SETG.get("show_log", False):
+    #    return Logger(level)
     return Logger(level, S_LOG)
 
 
