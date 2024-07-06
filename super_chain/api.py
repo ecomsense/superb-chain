@@ -8,9 +8,11 @@ def get_token():
         O_PROFITMART = Profitmart(**O_CNFG)
         if O_PROFITMART.authenticate():
             return O_PROFITMART
+        else:
+            raise Exception("profitmart authentication failed")
     except Exception as e:
         print(e)
-        print_exc()
+        __import__("sys").exit(1)
 
 
 class Helper:
