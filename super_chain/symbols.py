@@ -143,9 +143,9 @@ class Symbols:
             away = -1 * away
         return f"{self.symbol}{self.expiry}{c_or_p}{atm + away}"
 
-    def updateIndex(self, symbol, token):
+    def updateIndex(self, symbol, token, exchange):
 
-        tokens = "NSE|"+str(token)
+        tokens = str(exchange) +"|"+ str(token)
         val = { tokens: symbol }
         return val
 
