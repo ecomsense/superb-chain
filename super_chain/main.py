@@ -22,30 +22,6 @@ dct = {"BANKNIFTY": {"expiry": "24JUL24", "futExpiry":"31JUL24"},
        "SENSEX": {"expiry": "25JUL24","futExpiry":"26JUL24"}
      }
 
-def get_token_map_old():
-    dct_map = {}
-    for sym in lst:
-        if sym != 'SENSEX' and sym != 'BANKEX':
-            o_sym = Symbols("NFO", sym, dct[sym]["expiry"], dct[sym]["futExpiry"])
-            # dump and save to file
-            o_sym.dump()
-
-            # for index tokens are in a dict from symbols
-            resp = Helper.api.scriptinfo("NSE", dct_sym[sym]["token"])
-            atm = o_sym.calc_atm_from_ltp(float(resp["lp"]))
-            dct[sym]['atm'] = atm
-
-            # key is finvasia wserver subscription format
-            dct_map.update(o_sym.build_chain(atm))
-
-            #Update index in token list
-            dct_map.update(o_sym.updateIndex(sym, dct_sym[sym]["token"], "NSE"))
-
-            #Update index Fut in token list
-            dct_map.update(o_sym.updateFut())
-        
-    return dct_map
-
 def get_token_map():
     dct_map = {}
     for key, values in dct.items():
@@ -69,7 +45,48 @@ def get_token_map():
         
     return dct_map
 
+def get_bse_expiry(val,last_expiry):
+    expiry = ''
+    if (last_expiry):
+        date_obj = datetime.strptime(val, '%d%b%y')
+        expiry = date_obj.strftime('%y%b').upper()
+    else :
+        date_obj = datetime.strptime(val, '%d%b%y')
+        year = date_obj.strftime('%y')  # '24'
+        month = date_obj.strftime('%m')  # '08'
+        day = date_obj.strftime('%d')  # '09'
+        expiry = str(year + month.lstrip('0') + day)
+    return expiry
+
+def get_bse_Futexpiry(val):
+    date_obj = datetime.strptime(val, '%d%b%y')
+    expiry = date_obj.strftime('%y%b').upper()
+    
+    return expiry
+
 def get_token_map_bse(dct_map):
+    for key, values in dct.items():
+        if values['sym'] == 'SENSEX' or values['sym'] == 'BANKEX':
+            o_sym = Symbols("BFO", values['sym'], get_bse_expiry(values["expiry"], values['last_expiry']), get_bse_Futexpiry(values["futExpiry"]))
+            o_sym.dump_bse()
+
+            # for index tokens are in a dict from symbols
+            resp = Helper.api.scriptinfo("BSE", dct_sym[values['sym']]["token"])
+            atm = o_sym.calc_atm_from_ltp(float(resp["lp"]))
+            dct[key]['atm'] = atm
+
+            # key is finvasia wserver subscription format
+            dct_map.update(o_sym.build_chain_bse(atm))
+
+            #Update index in token list
+            dct_map.update(o_sym.updateIndex(values['sym'], dct_sym[values['sym']]["token"], "BSE"))
+
+            #Update index Fut in token list
+            dct_map.update(o_sym.updateFut_bse())
+        
+    return dct_map
+
+    '''
     for sym in lst:
         if sym == 'SENSEX' or sym == 'BANKEX':
             o_sym = Symbols("BFO", sym, dct[sym]["expiry"], dct[sym]["futExpiry"])
@@ -90,6 +107,7 @@ def get_token_map_bse(dct_map):
             # dct_map.update(o_sym.updateFut_bse())
         
     return dct_map
+    '''
 
 def run(Ws):
     while not Ws.socket_opened:
@@ -100,6 +118,7 @@ def run(Ws):
         logging.info("socket data")
         logging.info(Ws.ltp)
         updateDF (Ws.ltp)
+        updateDF_bse (Ws.ltp)
         timer(RefreshRate_inSecond)
 
 def updateDF(data):
@@ -115,6 +134,8 @@ def updateDF(data):
 
     # Group data by instrument and expiry
     for key, values in data.items():
+        if ("SENSEX" in str(key) or "BANKEX" in str(key)):
+            continue
         match = expiry_pattern.search(key)
         if match:
             expiry = match.group(1)
@@ -127,6 +148,8 @@ def updateDF(data):
             
     # Process each index separately
     for instrument,expiries in grouped_indexdata.items():
+        if ("SENSEX" in str(instrument) or "BANKEX" in str(instrument)):
+            continue
         now = datetime.now()
         curr_timestamp = now.strftime('%d-%m-%Y %H:%M:%S')
 
@@ -148,6 +171,8 @@ def updateDF(data):
     # Process each instrument and expiry separately
     
     for instrument, expiries in grouped_data.items():
+        if ("SENSEX" in str(instrument) or "BANKEX" in str(instrument)):
+            continue
         for expiry, strikes in expiries.items():
             strike_prices = sorted(strikes.keys())
             combined_rows = []
@@ -315,6 +340,246 @@ def updateDF(data):
             update_gsheet(client, sheet_name, sheet_index, final_df2, start_cell1)
             print ('updated option chain in gsheet for ' + str(indexSym) + ' '+str(expiry))
    
+def updateDF_bse(data):
+    
+    indexData = {}
+
+    # To hold grouped data by instrument and expiry
+    grouped_data = defaultdict(lambda: defaultdict(dict))
+    grouped_indexdata = defaultdict(lambda: defaultdict(dict))
+
+    # Regex to extract expiry date
+    pattern_yymdd = re.compile(r"(\d{5})")  #24809
+    pattern_yymmm = re.compile(r"(\d{2}[A-Z]{3})")    #24AUG
+
+
+    # Group data by instrument and expiry
+    for key, values in data.items():
+        if ("SENSEX" not in str(key) and "BANKEX" not in str(key)):
+            continue
+        match1 = pattern_yymmm.search(key)
+        match2 = pattern_yymdd.search(key)
+        if match1:
+            expiry = match1.group(1)
+            instrument, rest = key.split(f"{expiry}")
+            strike = rest[:-2]
+            
+            if (strike and strike.isdigit()):
+                grouped_data[instrument][expiry][int(strike)] = values
+            else:
+                grouped_indexdata[instrument][expiry] = values
+        elif (match2):
+            expiry = match2.group(1)
+            instrument, rest = key.split(f"{expiry}")
+            strike = rest[:-2]
+            if (strike and strike.isdigit()):
+                grouped_data[instrument][expiry][int(strike)] = values
+            else:
+                grouped_indexdata[instrument][expiry] = values
+        
+    # Process each index separately
+    for instrument,expiries in grouped_indexdata.items():
+        if ("SENSEX" not in str(instrument) and "BANKEX" not in str(instrument)):
+            continue
+        now = datetime.now()
+        curr_timestamp = now.strftime('%d-%m-%Y %H:%M:%S')
+
+        for expiry, values in expiries.items():
+            indexInstrument = f'{instrument}{expiry}FUT'
+            indexValues = data.get(indexInstrument, [None] * 17)
+            indexSym = instrument.replace('BFO:','')
+            # date_obj = datetime.strptime(dct[indexSym]["expiry"], '%d%b%y')
+            # exp_date = date_obj.strftime('%Y-%m-%d')
+            spotValues = data.get('BSE:'+str(indexSym), [None] * 17)
+            indexData_df = {
+                "Additional Details": ["Symbol", "Expiry", "Updated at", "LTP (spot, future)", "Open (spot, future)", "High (spot, future)", "Low (spot, future)", "Close (spot, future)", "Future OI"],
+                "CE": [indexSym, 0, curr_timestamp, spotValues[0], spotValues[5], spotValues[6], spotValues[7], spotValues[8], int(indexValues[15])],
+                "PE": ["", "", "", indexValues[0], indexValues[5], indexValues[6], indexValues[7], indexValues[8], ""]
+            }
+
+            indexData[indexSym] = [spotValues[0], indexValues[0], indexData_df]
+
+    
+    # Process each instrument and expiry separately
+    for instrument, expiries in grouped_data.items():
+        if ("SENSEX" not in str(instrument) and "BANKEX" not in str(instrument)):
+            continue
+        
+        for expiry, strikes in expiries.items():
+            strike_prices = sorted(strikes.keys())
+            combined_rows = []
+            combined_values = []
+            for strike in strike_prices:
+                left_key = f"{instrument}{expiry}{strike}CE"
+                right_key = f"{instrument}{expiry}{strike}PE"
+                left_values = data.get(left_key, [None] * 17)
+                right_values = data.get(right_key, [None] * 17)
+                combined_values = left_values[:16] + [strike] + right_values[:16]
+                combined_rows.append(combined_values)
+
+            # Create DataFrame columns 
+            columns = [
+                "CE LTP",
+                "CE_BIDQTY",
+                "CE_BIDPRICE",
+                "CE_ASKPRICE",
+                "CE_ASKQTY",
+                "CE_OPEN",
+                "CE_HIGH",
+                "CE_LOW",
+                "CE_CLOSE",
+                "CE BUY QTY",
+                "CE SELL QTY",
+                "CE VWAP",
+                "CE LTP Change",
+                "CE Volume",
+                "CE prev OI",
+                "CE_OI",
+                "Strike",
+                "PE LTP",
+                "PE_BIDQTY",
+                "PE_BIDPRICE",
+                "PE_ASKPRICE",
+                "PE_ASKQTY",
+                "PE_OPEN",
+                "PE_HIGH",
+                "PE_LOW",
+                "PE_CLOSE",
+                "PE BUY QTY",
+                "PE SELL QTY",
+                "PE VWAP",
+                "PE LTP Change",
+                "PE Volume",
+                "PE prev OI",
+                "PE_OI",
+            ]
+
+            # Create a DataFrame from the combined rows
+            final_df = pd.DataFrame(combined_rows, columns=columns)
+
+            ##Change in oi calculation
+            final_df["CE Change in OI"] = final_df["CE_OI"] - final_df["CE prev OI"]
+            final_df["PE Change in OI"] = final_df["PE_OI"] - final_df["PE prev OI"]
+            final_df = final_df.drop(columns=["CE prev OI"])
+            final_df = final_df.drop(columns=["PE prev OI"])
+            final_df = final_df.fillna("")
+
+            ## Greek calculations
+            indexSym = instrument.replace("BFO:", "")
+
+            pattern_yymdd = re.compile(r"(\d{5})")  #24809
+            pattern_yymmm = re.compile(r"(\d{2}[A-Z]{3})")    #24AUG
+            match1 = pattern_yymmm.search(expiry)
+            match2 = pattern_yymdd.search(expiry)
+            if match1:
+                expDate = datetime.strptime(expiry, "%y%b")
+            elif match2:
+                expDate = datetime.strptime(expiry, "%y%m%d")
+
+            delta = timedelta(days=6)
+            fromDate = expDate - delta
+            fromDate = fromDate.replace(hour=15, minute=30, second=0)
+            for c, d in dct.items():
+                if d['sym'] == indexSym and get_bse_expiry(d['expiry'],d['last_expiry'] == expiry) :
+                    sheet_index = d['SheetName']
+                    atmStrike = d['atm']
+                    break
+            atmCall = final_df.loc[final_df['Strike'] == atmStrike, 'CE LTP'].values[0]
+            atmPut = final_df.loc[final_df['Strike'] == atmStrike, 'PE LTP'].values[0]
+
+            IvGreeks = CalcIvGreeks(
+                SpotPrice = indexData[indexSym][0],
+                FuturePrice = indexData[indexSym][1],
+                AtmStrike = atmStrike,
+                AtmStrikeCallPrice = atmCall,
+                AtmStrikePutPrice = atmPut,
+                ExpiryDateTime = expDate,
+                ExpiryDateType = ExpType.WEEKLY,
+                FromDateTime = fromDate,
+                tryMatchWith = TryMatchWith.NSE,
+                dayCountType = DayCountType.CALENDARDAYS,
+            )
+            df_input = pd.DataFrame({
+                "StrikePrice": final_df['Strike'],
+                "StrikeCallPrice": final_df['CE LTP'],
+                "StrikePutPrice": final_df['PE LTP']
+                })
+            df_output = IvGreeks.GetImpVolAndGreeksFromDF(df_input)
+            final_df['CE_Delta'] = df_output['CallDelta']
+            final_df['PE_Delta'] = df_output['PutDelta']
+            final_df['CE_Gamma'] = df_output['Gamma']
+            final_df['PE_Gamma'] = df_output['Gamma']
+            final_df['CE_Theta'] = df_output['Theta']
+            final_df['PE_Theta'] = df_output['Theta']
+            final_df['CE_Vega'] = df_output['Vega']
+            final_df['PE_Vega'] = df_output['Vega']
+            final_df['CE_Rho'] = df_output['RhoCall']
+            final_df['PE_Rho'] = df_output['RhoPut']
+            final_df['CE_IV'] = df_output['CallIV']
+            final_df['PE_IV'] = df_output['PutIV']
+
+            ## Ordering as per given order
+            new_column_order = [
+                "CE_Delta",
+                "CE_Gamma",
+                "CE_Theta",
+                "CE_Vega",
+                "CE_Rho",
+                "CE_OI",
+                "CE Change in OI",
+                "CE Volume",
+                "CE_IV",
+                "CE LTP Change",
+                "CE VWAP",
+                "CE BUY QTY",
+                "CE SELL QTY",
+                "CE_OPEN",
+                "CE_HIGH",
+                "CE_LOW",
+                "CE_CLOSE",
+                "CE_BIDQTY",
+                "CE_BIDPRICE",
+                "CE_ASKPRICE",
+                "CE_ASKQTY",
+                "CE LTP",
+                "Strike",
+                "PE LTP",
+                "PE_BIDQTY",
+                "PE_BIDPRICE",
+                "PE_ASKPRICE",
+                "PE_ASKQTY",
+                "PE_OPEN",
+                "PE_HIGH",
+                "PE_LOW",
+                "PE_CLOSE",
+                "PE BUY QTY",
+                "PE SELL QTY",
+                "PE VWAP",
+                "PE LTP Change",
+                "PE_IV",
+                "PE Volume",
+                "PE Change in OI",
+                "PE_OI",
+                "PE_Rho",
+                "PE_Vega",
+                "PE_Theta",
+                "PE_Gamma",
+                "PE_Delta"
+            ]
+            final_df = final_df[new_column_order]
+
+            indexData_df = indexData[indexSym][2]
+            exp_dateforOption = expDate.strftime('%Y-%m-%d')
+            indexData_df ['CE'][1] = exp_dateforOption
+            indexDf = pd.DataFrame(indexData_df)  
+            spacer = pd.DataFrame({'': [''] * len(final_df)})
+            final_df2 = pd.concat([indexDf, spacer, final_df], axis=1)
+            final_df2 = final_df2.fillna("")
+            start_cell1 = "A1"
+            
+            update_gsheet(client, sheet_name, sheet_index, final_df2, start_cell1)
+            print ('updated option chain in gsheet for ' + str(indexSym) + ' '+str(expiry))
+
 def main():
 
     ## gsheet authenticate
@@ -334,7 +599,7 @@ def main():
     # get key values for subscription
     dct_map = get_token_map()
     # dct_map = {}
-    # dct_map = get_token_map_bse(dct_map)
+    dct_map = get_token_map_bse(dct_map)
     logging.info("dct map is "+ str(dct_map))
     # init wsocket
     Ws = Wserver(Helper.api._broker, dct_map)
@@ -363,6 +628,10 @@ def checkOptionsConfig(filepath):
         dct[str(i)]['expiry'] = convertDates(optionDataConfig[i]['Expiry'])
         dct[str(i)]['futExpiry'] = convertDates(optionDataConfig[i]['FutExpiry'])
         dct[str(i)]['SheetName'] = optionDataConfig[i]['SheetName']
+        if (optionDataConfig[i]['lastExpiry']):
+            dct[str(i)]['last_expiry'] = True
+        else:
+            dct[str(i)]['last_expiry'] = False
     
     # dct = {
     #   "BANKNIFTY": {"sym": "BANKNIFTY", "expiry": "24JUL24", "futExpiry":"31JUL24", "SheetName":"Weekly_NIFTY"},
@@ -375,4 +644,41 @@ def checkOptionsConfig(filepath):
     
 
 main()
+
+'''
+{
+  "sheet_name": "Test gSheet",
+  "RefreshRate_inSecond": 10,
+  "OptionChain": [
+    {
+      "SheetName": "Weekly_NIFTY",
+      "Symbol": "NIFTY",
+      "Expiry": "2024-07-25",
+      "FutExpiry":"2024-07-25",
+      "ExpiryType": "WEEKLY"
+    },
+    {
+      "SheetName": "Weekly_BANKNIFTY",
+      "Symbol": "BANKNIFTY",
+      "Expiry": "2024-07-24",
+      "FutExpiry":"2024-07-31",
+      "ExpiryType": "WEEKLY"
+    },
+    {
+      "SheetName": "Weekly_MIDCPNIFTY",
+      "Symbol": "MIDCPNIFTY",
+      "Expiry": "2024-07-22",
+      "FutExpiry":"2024-07-29",
+      "ExpiryType": "WEEKLY"
+    },
+    {
+      "SheetName": "Weekly_BANKNIFTY1",
+      "Symbol": "BANKNIFTY",
+      "Expiry": "2024-07-31",
+      "FutExpiry":"2024-07-31",
+      "ExpiryType": "WEEKLY"
+    }
+  ]
+}
+'''
 
