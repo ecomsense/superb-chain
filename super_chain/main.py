@@ -628,8 +628,11 @@ def checkOptionsConfig(filepath):
         dct[str(i)]['expiry'] = convertDates(optionDataConfig[i]['Expiry'])
         dct[str(i)]['futExpiry'] = convertDates(optionDataConfig[i]['FutExpiry'])
         dct[str(i)]['SheetName'] = optionDataConfig[i]['SheetName']
-        if (optionDataConfig[i]['lastExpiry']):
-            dct[str(i)]['last_expiry'] = True
+        if ('lastExpiry' in optionDataConfig[i]):
+            if (optionDataConfig[i]['lastExpiry']):
+                dct[str(i)]['last_expiry'] = True
+            else:
+                dct[str(i)]['last_expiry'] = False
         else:
             dct[str(i)]['last_expiry'] = False
     
