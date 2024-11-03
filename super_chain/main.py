@@ -45,8 +45,19 @@ def get_token_map():
         
     return dct_map
 
-def get_bse_expiry(val,last_expiry):
+def get_bse_expiry(val,last_expiry,lastYearSeries):
     expiry = ''
+    if (lastYearSeries):
+        if (last_expiry):
+            date_obj = datetime.strptime(val, '%d%b%y')
+            expiry = date_obj.strftime('%y%b').upper()
+        else:
+            date_obj = datetime.strptime(val, '%d%b%y')
+            year = date_obj.strftime('%y')  # '24'
+            month = date_obj.strftime('%b')[0] #N
+            day = date_obj.strftime('%d')  # '09'
+            expiry = str(year + month + day)
+    else:
     if (last_expiry):
         date_obj = datetime.strptime(val, '%d%b%y')
         expiry = date_obj.strftime('%y%b').upper()
@@ -56,6 +67,7 @@ def get_bse_expiry(val,last_expiry):
         month = date_obj.strftime('%m')  # '08'
         day = date_obj.strftime('%d')  # '09'
         expiry = str(year + month.lstrip('0') + day)
+    print (expiry)
     return expiry
 
 def get_bse_Futexpiry(val):
@@ -67,7 +79,7 @@ def get_bse_Futexpiry(val):
 def get_token_map_bse(dct_map):
     for key, values in dct.items():
         if values['sym'] == 'SENSEX' or values['sym'] == 'BANKEX':
-            o_sym = Symbols("BFO", values['sym'], get_bse_expiry(values["expiry"], values['last_expiry']), get_bse_Futexpiry(values["futExpiry"]))
+            o_sym = Symbols("BFO", values['sym'], get_bse_expiry(values["expiry"], values['last_expiry'],values['lastYearSeries']), get_bse_Futexpiry(values["futExpiry"]))
             o_sym.dump_bse()
 
             # for index tokens are in a dict from symbols
@@ -351,6 +363,7 @@ def updateDF_bse(data):
     # Regex to extract expiry date
     pattern_yymdd = re.compile(r"(\d{5})")  #24809
     pattern_yymmm = re.compile(r"(\d{2}[A-Z]{3})")    #24AUG
+    pattern_yybdd = re.compile(r"(\d{2}[A-Z]{1}\d{2})")  #24N08
 
 
     # Group data by instrument and expiry
@@ -358,7 +371,8 @@ def updateDF_bse(data):
         if ("SENSEX" not in str(key) and "BANKEX" not in str(key)):
             continue
         match1 = pattern_yymmm.search(key)
-        match2 = pattern_yymdd.search(key)
+        match2 = pattern_yybdd.search(key)
+        match3 = pattern_yymdd.search(key)
         if match1:
             expiry = match1.group(1)
             instrument, rest = key.split(f"{expiry}")
@@ -370,6 +384,16 @@ def updateDF_bse(data):
                 grouped_indexdata[instrument][expiry] = values
         elif (match2):
             expiry = match2.group(1)
+            print (expiry)
+            instrument, rest = key.split(f"{expiry}")
+            strike = rest[:-2]
+            if (strike and strike.isdigit()):
+                grouped_data[instrument][expiry][int(strike)] = values
+            else:
+                grouped_indexdata[instrument][expiry] = values
+        elif (match3):
+            expiry = match3.group(1)
+            print (expiry)
             instrument, rest = key.split(f"{expiry}")
             strike = rest[:-2]
             if (strike and strike.isdigit()):
@@ -480,7 +504,7 @@ def updateDF_bse(data):
             fromDate = expDate - delta
             fromDate = fromDate.replace(hour=15, minute=30, second=0)
             for c, d in dct.items():
-                if d['sym'] == indexSym and get_bse_expiry(d['expiry'],d['last_expiry'] == expiry) :
+                if d['sym'] == indexSym and get_bse_expiry(d['expiry'],d['last_expiry'] == expiry,d['lastYearSeries']) :
                     sheet_index = d['SheetName']
                     atmStrike = d['atm']
                     break
@@ -635,6 +659,15 @@ def checkOptionsConfig(filepath):
                 dct[str(i)]['last_expiry'] = False
         else:
             dct[str(i)]['last_expiry'] = False
+        if ('lastYearSeries' in optionDataConfig[i]):
+            if (optionDataConfig[i]['lastYearSeries']):
+                dct[str(i)]['lastYearSeries'] = True
+            else:
+                dct[str(i)]['lastYearSeries'] = False
+        else:
+            dct[str(i)]['lastYearSeries'] = False
+
+
     
     # dct = {
     #   "BANKNIFTY": {"sym": "BANKNIFTY", "expiry": "24JUL24", "futExpiry":"31JUL24", "SheetName":"Weekly_NIFTY"},
@@ -684,4 +717,3 @@ main()
   ]
 }
 '''
-
