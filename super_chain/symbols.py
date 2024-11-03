@@ -106,11 +106,13 @@ class Symbols:
             ].str.extract(expression)
 
             ## fut
+            futExpiry = self.futExpiry 
             if (self.symbol == "SENSEX"):
                 exchSym = 'BSXFUT'
             elif (self.symbol == "BANKEX"):
                 exchSym = 'BKXFUT'
-            expression2 = "("+sym+ ")("+ expiry +")(FUT)"
+            expression2 = "("+sym+ ")("+ futExpiry +")(FUT)"
+            print (expression2)
             df2 = df[ (df["Exchange"] == self.exch) & (df["Symbol"] == exchSym) ][["Token", "TradingSymbol"]]
             df2[["ssymbol", "Expiry", "OptionType"]] = df2[
                 "TradingSymbol"
@@ -262,4 +264,3 @@ class Symbols:
         )
         dct = tokens_found.to_dict()
         return dct["TradingSymbol"]
-
